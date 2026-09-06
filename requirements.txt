@@ -8,6 +8,7 @@ openai-whisper
 silero-vad
 librosa
 soundfile
+sounddevice
 scipy
 numpy
 scikit-learn

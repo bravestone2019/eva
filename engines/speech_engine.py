@@ -1,15 +1,29 @@
+from pathlib import Path
+
 import numpy as np
+import warnings
+
 import torch
 import soundfile as sf
 
 from silero_vad import get_speech_timestamps
 
-from config import (
+from app.config import (
     TARGET_SAMPLE_RATE,
     VAD_THRESHOLD,
     SPEECH_PAD_MS,
     MIN_SPEECH_DURATION_MS,
     MIN_SILENCE_DURATION_MS
+)
+
+
+warnings.filterwarnings(
+    "ignore",
+    message=(
+        "Support for mismatched key_padding_mask and attn_mask "
+        "is deprecated.*"
+    ),
+    category=UserWarning
 )
 
 
@@ -94,6 +108,11 @@ class SpeechEngine:
         output_file
     ):
 
+        Path(output_file).parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
         sf.write(
             output_file,
             audio,
@@ -103,16 +122,16 @@ class SpeechEngine:
 
     def transcribe(
         self,
-        speech_file
+        audio
     ):
 
-        if speech_file is None:
+        if audio is None:
             return ""
 
         result = (
             self.whisper_model.transcribe(
 
-                speech_file,
+                audio,
 
                 fp16=torch.cuda.is_available()
             )

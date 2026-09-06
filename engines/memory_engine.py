@@ -1,4 +1,4 @@
-from config import (
+from app.config import (
     MAX_CONVERSATION_HISTORY
 )
 

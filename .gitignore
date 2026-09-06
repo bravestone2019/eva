@@ -216,3 +216,23 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# EVA local runtime artifacts
+# Keep the package marker, but never commit generated recordings or replies.
+output/*
+!output/__init__.py
+
+# Downloaded model weights and local retrieval data can be large or private.
+checkpoints/
+data/audio/
+data/documents/
+data/memory/
+
+# Local Hugging Face state and credentials
+.huggingface/
+hf_cache/
+
+# Local editor and OS files
+.vscode/
+.DS_Store
+Thumbs.db

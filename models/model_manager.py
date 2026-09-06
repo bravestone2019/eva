@@ -1,3 +1,7 @@
+import os
+from pathlib import Path
+
+import certifi
 import torch
 import whisper
 
@@ -11,12 +15,42 @@ from transformers import (
 
 from silero_vad import load_silero_vad
 
-from config import (
+from app.config import (
+    CPU_LLM_MODEL_NAME,
     DEVICE,
     GEMMA_MODEL_NAME,
     WAVLM_MODEL_NAME,
     WHISPER_MODEL_NAME
 )
+
+
+def configure_certificate_bundle():
+    """Recover from a stale SSL_CERT_FILE setting in the launch shell.
+
+    Hugging Face respects SSL_CERT_FILE.  When that variable points to a
+    deleted file, HTTP clients cannot even create an SSL context.  Keep a
+    valid custom certificate path intact, and otherwise use Certifi's bundle.
+    """
+
+    certificate_file = os.environ.get("SSL_CERT_FILE")
+
+    if certificate_file and not Path(certificate_file).is_file():
+        os.environ["SSL_CERT_FILE"] = certifi.where()
+
+
+configure_certificate_bundle()
+
+
+def can_load_gemma():
+    """Return whether the 4B Gemma model has enough CUDA memory to load."""
+
+    if not torch.cuda.is_available():
+        return False
+
+    minimum_vram_bytes = 6 * 1024**3
+    available_vram_bytes = torch.cuda.get_device_properties(0).total_memory
+
+    return available_vram_bytes >= minimum_vram_bytes
 
 
 class ModelManager:
@@ -42,6 +76,45 @@ class ModelManager:
     def load_llm(self):
 
         print("\nLoading Gemma...")
+
+        if not can_load_gemma():
+
+            if torch.cuda.is_available():
+                fallback_reason = (
+                    "The GPU has less than 6 GiB of VRAM"
+                )
+            else:
+                fallback_reason = "CUDA is unavailable"
+
+            print(
+                f"{fallback_reason}; loading the lightweight model: "
+                f"{CPU_LLM_MODEL_NAME}"
+            )
+
+            self.tokenizer = (
+                AutoTokenizer.from_pretrained(
+                    CPU_LLM_MODEL_NAME
+                )
+            )
+
+            self.llm = (
+                AutoModelForCausalLM
+                .from_pretrained(
+                    CPU_LLM_MODEL_NAME,
+                    dtype=(
+                        torch.float16
+                        if torch.cuda.is_available()
+                        else torch.float32
+                    ),
+                    low_cpu_mem_usage=True
+                )
+                .to(self.device)
+            )
+
+            self.llm.eval()
+
+            print("Lightweight fallback model loaded.")
+            return
 
         quant_config = BitsAndBytesConfig(
 

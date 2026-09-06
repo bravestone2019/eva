@@ -1,6 +1,9 @@
+from pathlib import Path
+
 import numpy as np
 
 import librosa
+import sounddevice as sd
 import soundfile as sf
 
 from scipy.signal import (
@@ -8,7 +11,7 @@ from scipy.signal import (
     sosfilt
 )
 
-from config import (
+from app.config import (
     TARGET_SAMPLE_RATE,
     HIGH_PASS_CUTOFF
 )
@@ -142,6 +145,11 @@ class AudioEngine:
             audio
         )
 
+        Path(output_file).parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
         sf.write(
             output_file,
             audio,
@@ -150,3 +158,37 @@ class AudioEngine:
         )
 
         return audio
+
+    def record_microphone(
+        self,
+        output_file,
+        duration_seconds
+    ):
+
+        if duration_seconds <= 0:
+            raise ValueError(
+                "Recording duration must be greater than zero."
+            )
+
+        Path(output_file).parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+        audio = sd.rec(
+            int(duration_seconds * self.target_sr),
+            samplerate=self.target_sr,
+            channels=1,
+            dtype="float32"
+        )
+
+        sd.wait()
+
+        sf.write(
+            output_file,
+            audio[:, 0],
+            self.target_sr,
+            subtype="FLOAT"
+        )
+
+        return output_file
