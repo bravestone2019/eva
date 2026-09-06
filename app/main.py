@@ -1,3 +1,5 @@
+import argparse
+
 from models.model_manager import (
     model_manager
 )
@@ -24,6 +26,10 @@ from engines.llm_engine import (
 
 from engines.rag_engine import (
     RAGEngine
+)
+
+from engines.tts_engine import (
+    TTSEngine
 )
 
 
@@ -76,6 +82,10 @@ class EVA:
             RAGEngine()
         )
 
+        self.tts_engine = (
+            TTSEngine()
+        )
+
         print()
         print("EVA V5 READY")
         print("=" * 60)
@@ -90,7 +100,7 @@ class EVA:
         # ====================================================
 
         processed_file = (
-            "outputs/processed_audio.wav"
+            "output/processed_audio.wav"
         )
 
         audio = (
@@ -137,7 +147,7 @@ class EVA:
         )
 
         speech_file = (
-            "outputs/speech_only.wav"
+            "output/speech_only.wav"
         )
 
         self.speech_engine.save_speech(
@@ -153,7 +163,7 @@ class EVA:
 
         text = (
             self.speech_engine.transcribe(
-                speech_file
+                speech_audio
             )
         )
 
@@ -241,8 +251,63 @@ class EVA:
         }
 
 
-if __name__ == "__main__":
+def main():
+
+    parser = argparse.ArgumentParser(
+        description="Run EVA with a microphone recording or WAV input file."
+    )
+
+    input_group = parser.add_mutually_exclusive_group(
+        required=True
+    )
+
+    input_group.add_argument(
+        "--record-seconds",
+        type=float,
+        help="Record from the default microphone for this many seconds."
+    )
+
+    input_group.add_argument(
+        "--input-file",
+        help="Path to an existing audio file."
+    )
+
+    args = parser.parse_args()
 
     eva = EVA()
 
-    print("\nEVA initialized successfully.")
+    if args.record_seconds is not None:
+
+        input_file = "output/recorded_audio.wav"
+
+        print(
+            f"\nRecording for {args.record_seconds:g} seconds. "
+            "Speak now..."
+        )
+
+        eva.audio_engine.record_microphone(
+            input_file,
+            args.record_seconds
+        )
+
+        print("Recording complete. Processing audio...")
+
+    else:
+        input_file = args.input_file
+
+    result = eva.process_voice(input_file)
+
+    if not result["success"]:
+        print(f"\nEVA: {result['message']}")
+        return
+
+    print(f"\nYou: {result['transcription']}")
+    print(f"EVA: {result['response']}")
+
+    print("\nEVA is speaking...")
+    eva.tts_engine.speak(result["response"])
+
+
+if __name__ == "__main__":
+
+    main()

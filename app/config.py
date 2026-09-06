@@ -46,6 +46,10 @@ WAVLM_MODEL_NAME = "microsoft/wavlm-base-plus"
 
 GEMMA_MODEL_NAME = "google/gemma-3-4b-it"
 
+# Used automatically when CUDA is unavailable.  This public, compact
+# instruction model makes the application usable on CPU-only machines.
+CPU_LLM_MODEL_NAME = "HuggingFaceTB/SmolLM2-360M-Instruct"
+
 # ------------------------------------------------------------
 # LLM
 # ------------------------------------------------------------
