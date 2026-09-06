@@ -1,0 +1,16 @@
+torch
+torchaudio
+transformers
+accelerate
+bitsandbytes
+sentencepiece
+openai-whisper
+silero-vad
+librosa
+soundfile
+scipy
+numpy
+scikit-learn
+sentence-transformers
+faiss-cpu
+edge-tts
