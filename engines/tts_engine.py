@@ -32,7 +32,8 @@ class TTSEngine:
     def speak(
         self,
         text,
-        output_file="output/eva_response.mp3"
+        output_file="output/eva_response.mp3",
+        play=False
     ):
 
         if not text.strip():
@@ -50,8 +51,9 @@ class TTSEngine:
             )
         )
 
-        os.startfile(
-            Path(output_file).resolve()
-        )
+        # A Kaggle/API server has no desktop audio player.  The caller can
+        # return this file to Flutter, while the local CLI may opt in to play.
+        if play and os.name == "nt":
+            os.startfile(Path(output_file).resolve())
 
         return output_file

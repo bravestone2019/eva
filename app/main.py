@@ -305,7 +305,7 @@ def main():
     print(f"EVA: {result['response']}")
 
     print("\nEVA is speaking...")
-    eva.tts_engine.speak(result["response"])
+    eva.tts_engine.speak(result["response"], play=True)
 
 
 if __name__ == "__main__":

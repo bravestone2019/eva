@@ -1,3 +1,5 @@
+import os
+
 import torch
 
 
@@ -40,15 +42,20 @@ MIN_SILENCE_DURATION_MS = 300
 # MODELS
 # ------------------------------------------------------------
 
-WHISPER_MODEL_NAME = "large-v3-turbo"
+WHISPER_MODEL_NAME = os.getenv("EVA_WHISPER_MODEL", "large-v3-turbo")
 
 WAVLM_MODEL_NAME = "microsoft/wavlm-base-plus"
 
-GEMMA_MODEL_NAME = "google/gemma-3-4b-it"
+# Qwen is public (unlike some Gemma checkpoints) and runs well in Kaggle's
+# free T4/P100 GPUs when loaded in 4-bit mode.  Override it with EVA_LLM_MODEL
+# if you already have another Hugging Face model available.
+LLM_MODEL_NAME = os.getenv("EVA_LLM_MODEL", "Qwen/Qwen2.5-3B-Instruct")
 
 # Used automatically when CUDA is unavailable.  This public, compact
 # instruction model makes the application usable on CPU-only machines.
-CPU_LLM_MODEL_NAME = "HuggingFaceTB/SmolLM2-360M-Instruct"
+CPU_LLM_MODEL_NAME = os.getenv(
+    "EVA_CPU_LLM_MODEL", "HuggingFaceTB/SmolLM2-360M-Instruct"
+)
 
 # ------------------------------------------------------------
 # LLM

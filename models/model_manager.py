@@ -18,7 +18,7 @@ from silero_vad import load_silero_vad
 from app.config import (
     CPU_LLM_MODEL_NAME,
     DEVICE,
-    GEMMA_MODEL_NAME,
+    LLM_MODEL_NAME,
     WAVLM_MODEL_NAME,
     WHISPER_MODEL_NAME
 )
@@ -75,7 +75,7 @@ class ModelManager:
 
     def load_llm(self):
 
-        print("\nLoading Gemma...")
+        print("\nLoading language model...")
 
         if not can_load_gemma():
 
@@ -101,7 +101,7 @@ class ModelManager:
                 AutoModelForCausalLM
                 .from_pretrained(
                     CPU_LLM_MODEL_NAME,
-                    dtype=(
+                    torch_dtype=(
                         torch.float16
                         if torch.cuda.is_available()
                         else torch.float32
@@ -127,17 +127,13 @@ class ModelManager:
             bnb_4bit_use_double_quant=True
         )
 
-        self.tokenizer = (
-            AutoTokenizer.from_pretrained(
-                GEMMA_MODEL_NAME
-            )
-        )
+        self.tokenizer = AutoTokenizer.from_pretrained(LLM_MODEL_NAME)
 
         self.llm = (
             AutoModelForCausalLM
             .from_pretrained(
 
-                GEMMA_MODEL_NAME,
+                LLM_MODEL_NAME,
 
                 quantization_config=quant_config,
 
@@ -145,7 +141,7 @@ class ModelManager:
             )
         )
 
-        print("Gemma loaded.")
+        print("Language model loaded.")
 
     # ========================================================
     # WHISPER

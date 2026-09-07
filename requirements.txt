@@ -15,3 +15,6 @@ scikit-learn
 sentence-transformers
 faiss-cpu
 edge-tts
+fastapi
+uvicorn[standard]
+python-multipart
