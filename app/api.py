@@ -9,8 +9,11 @@ from threading import Lock
 from typing import Any
 
 import numpy as np
+import edge_tts
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from starlette.responses import Response
 
 from app.main import EVA
 
@@ -27,6 +30,15 @@ app.add_middleware(
 _eva: EVA | None = None
 _model_lock = Lock()
 _inference_lock = Lock()
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=10000)
+    history: list[dict[str, str]] = Field(default_factory=list, max_length=10)
+
+
+class SpeechRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=10000)
 
 
 def get_eva() -> EVA:
@@ -82,3 +94,51 @@ async def process_voice(audio: UploadFile = File(...)) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(error)) from error
     finally:
         Path(input_path).unlink(missing_ok=True)
+
+
+@app.post("/v1/chat")
+def process_chat(request: ChatRequest) -> dict[str, Any]:
+    """Generate a text reply using the conversation supplied by the client."""
+    message = request.message.strip()
+    if not message:
+        raise HTTPException(status_code=422, detail="Message cannot be blank.")
+
+    try:
+        with _inference_lock:
+            eva = get_eva()
+            retrieved = eva.rag_engine.retrieve(message)
+            rag_context = "\n\n".join(
+                document["text"] for document in retrieved
+            )
+            response = eva.llm_engine.generate(
+                user_message=message,
+                conversation_history=request.history,
+                rag_context=rag_context,
+            )
+        return {
+            "success": True,
+            "message": message,
+            "response": response,
+        }
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
+
+
+@app.post("/v1/tts")
+async def synthesize_speech(request: SpeechRequest) -> Response:
+    """Return a spoken response using EVA's feminine Aria Neural voice."""
+    text = request.text.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="Text cannot be blank.")
+
+    try:
+        communicator = edge_tts.Communicate(text, voice="en-US-AriaNeural")
+        audio = bytearray()
+        async for chunk in communicator.stream():
+            if chunk["type"] == "audio":
+                audio.extend(chunk["data"])
+        if not audio:
+            raise RuntimeError("Speech service returned no audio.")
+        return Response(content=bytes(audio), media_type="audio/mpeg")
+    except Exception as error:
+        raise HTTPException(status_code=502, detail="Speech generation is unavailable.") from error
