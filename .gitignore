@@ -149,6 +149,7 @@ activemq-data/
 
 # Environments
 .env
+frontend/.env.local
 .envrc
 .venv
 env/
@@ -224,9 +225,20 @@ output/*
 
 # Downloaded model weights and local retrieval data can be large or private.
 checkpoints/
+outputs/
+RAVDESS/
+crema-d-mirror/
+natural-audio/
 data/audio/
 data/documents/
 data/memory/
+data/fleurs/
+data/go_emotions/
+data/hinemo/
+data/oasst1/
+data/natural_voice/
+data/eva_accounts.sqlite3*
+data/eva_accounts.secret
 
 # Local Hugging Face state and credentials
 .huggingface/

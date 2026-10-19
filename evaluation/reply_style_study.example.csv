@@ -1,0 +1,2 @@
+scenario_id,prompt,expected_emotion,adapted_response,standard_response,consent
+scenario_001,"Replace with a consented prompt",frustrated,"Replace with the affect-adapted reply","Replace with the standard reply",false

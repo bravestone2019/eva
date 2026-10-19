@@ -12,8 +12,8 @@ from engines.speech_engine import (
     SpeechEngine
 )
 
-from engines.emotion_engine import (
-    EmotionEngine
+from engines.affect_engine import (
+    AffectEngine
 )
 
 from engines.memory_engine import (
@@ -62,11 +62,11 @@ class EVA:
             )
         )
 
-        self.emotion_engine = (
-            EmotionEngine(
-                model_manager
-            )
-        )
+        # The experimental EmotionModel has no trained checkpoint. The active
+        # web flow uses AffectEngine's pretrained text/audio classifiers.
+        self.emotion_engine = None
+
+        self.affect_engine = AffectEngine()
 
         self.memory_engine = (
             MemoryEngine()
@@ -92,7 +92,9 @@ class EVA:
 
     def process_voice(
         self,
-        input_file
+        input_file,
+        adapt_emotion=True,
+        conversation_history=None,
     ):
 
         # ====================================================
@@ -122,28 +124,17 @@ class EVA:
             )
         )
 
-        if not timestamps:
-
-            return {
-
-                "success":
-                False,
-
-                "message":
-                "No speech detected."
-            }
-
         # ====================================================
         # 3. SPEECH AUDIO
         # ====================================================
 
+        # VAD can miss quiet speech, accents, or recordings with a noisy
+        # microphone. Let Whisper inspect the complete recording in that case
+        # instead of rejecting it before transcription is attempted.
         speech_audio = (
-            self.speech_engine.extract_speech(
-
-                audio,
-
-                timestamps
-            )
+            self.speech_engine.extract_speech(audio, timestamps)
+            if timestamps
+            else audio
         )
 
         speech_file = (
@@ -167,14 +158,30 @@ class EVA:
             )
         )
 
+        # A VAD-trimmed clip can also remove the first/last words. Retry the
+        # original preprocessed recording before reporting a recognition
+        # failure to the user.
+        if not text.strip() and speech_audio is not audio:
+            speech_audio = audio
+            text = self.speech_engine.transcribe(speech_audio)
+
+        if not text.strip():
+            return {
+                "success": False,
+                "message": "I couldn't recognize any words. Move closer to the microphone, reduce background noise, and try speaking again.",
+            }
+
         # ====================================================
         # 5. EMOTION
         # ====================================================
 
-        emotion_result = (
-            self.emotion_engine.analyze(
-                speech_audio
+        affect_result = (
+            self.affect_engine.analyze(
+                text=text,
+                audio=speech_audio
             )
+            if adapt_emotion
+            else self.affect_engine.analyze()
         )
 
         # ====================================================
@@ -188,9 +195,7 @@ class EVA:
         )
 
         rag_context = "\n\n".join(
-
-            document["text"]
-
+            f"[Source: {document['metadata'].get('source', 'local document')}]\n{document['text']}"
             for document in retrieved
         )
 
@@ -198,9 +203,7 @@ class EVA:
         # 7. MEMORY
         # ====================================================
 
-        history = (
-            self.memory_engine.get_history()
-        )
+        history = conversation_history if conversation_history is not None else self.memory_engine.get_history()
 
         # ====================================================
         # 8. LLM
@@ -211,16 +214,17 @@ class EVA:
 
                 user_message=text,
 
-                emotion_state=
-                emotion_result.get(
-                    "emotion"
-                ),
-
                 conversation_history=
                 history,
 
                 rag_context=
-                rag_context
+                rag_context,
+
+                response_style=(
+                    affect_result["response_style"]
+                    if adapt_emotion
+                    else "standard"
+                )
             )
         )
 
@@ -228,12 +232,8 @@ class EVA:
         # 9. MEMORY UPDATE
         # ====================================================
 
-        self.memory_engine.add_conversation(
-
-            text,
-
-            response
-        )
+        if conversation_history is None:
+            self.memory_engine.add_conversation(text, response)
 
         return {
 
@@ -243,8 +243,8 @@ class EVA:
             "transcription":
             text,
 
-            "emotion":
-            emotion_result,
+            "affect":
+            affect_result,
 
             "response":
             response

@@ -1,4 +1,7 @@
 from pathlib import Path
+import shutil
+import subprocess
+import tempfile
 
 import numpy as np
 
@@ -17,6 +20,64 @@ from app.config import (
 )
 
 
+def load_audio_file(input_file, sample_rate=None, mono=True):
+    """Load common browser audio formats, using FFmpeg when librosa cannot."""
+    try:
+        return librosa.load(input_file, sr=sample_rate, mono=mono)
+    except Exception as librosa_error:
+        try:
+            import imageio_ffmpeg
+
+            ffmpeg_executable = imageio_ffmpeg.get_ffmpeg_exe()
+        except Exception:
+            ffmpeg_executable = shutil.which("ffmpeg")
+
+        if not ffmpeg_executable:
+            raise ValueError(
+                "EVA could not decode this audio format. Install the updated "
+                "requirements with `pip install -r requirements.txt`, then restart the backend."
+            ) from librosa_error
+
+        with tempfile.TemporaryDirectory(prefix="eva-audio-") as temporary_dir:
+            decoded_path = Path(temporary_dir) / "decoded.wav"
+            command = [
+                ffmpeg_executable,
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-nostdin",
+                "-y",
+                "-i",
+                str(input_file),
+                "-vn",
+                "-acodec",
+                "pcm_s16le",
+            ]
+            if mono:
+                command.extend(["-ac", "1"])
+            if sample_rate:
+                command.extend(["-ar", str(sample_rate)])
+            command.append(str(decoded_path))
+            try:
+                subprocess.run(command, check=True, capture_output=True, text=True)
+                audio, decoded_sample_rate = sf.read(
+                    decoded_path,
+                    dtype="float32",
+                    always_2d=not mono,
+                )
+            except (OSError, subprocess.CalledProcessError, RuntimeError) as decode_error:
+                details = getattr(decode_error, "stderr", "")
+                raise ValueError(
+                    "EVA could not decode this recording. Please record a new "
+                    "voice message or upload a WAV/MP3 file."
+                    + (f" ({details.strip()})" if details else "")
+                ) from decode_error
+
+        if not mono and audio.ndim == 2:
+            audio = audio.T
+        return np.asarray(audio, dtype=np.float32), decoded_sample_rate
+
+
 class AudioEngine:
 
     def __init__(self):
@@ -28,9 +89,9 @@ class AudioEngine:
         input_file
     ):
 
-        return librosa.load(
+        return load_audio_file(
             input_file,
-            sr=None,
+            sample_rate=None,
             mono=False
         )
 
