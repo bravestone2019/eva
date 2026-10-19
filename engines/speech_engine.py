@@ -13,7 +13,8 @@ from app.config import (
     VAD_THRESHOLD,
     SPEECH_PAD_MS,
     MIN_SPEECH_DURATION_MS,
-    MIN_SILENCE_DURATION_MS
+    MIN_SILENCE_DURATION_MS,
+    WHISPER_LANGUAGE,
 )
 
 
@@ -41,6 +42,7 @@ class SpeechEngine:
         self.whisper_model = (
             model_manager.whisper_model
         )
+        self.whisper_processor = getattr(model_manager, "whisper_processor", None)
 
     def detect_speech(
         self,
@@ -127,6 +129,38 @@ class SpeechEngine:
 
         if audio is None:
             return ""
+
+        if self.whisper_processor is not None:
+            waveform = np.asarray(audio, dtype=np.float32)
+            if waveform.ndim > 1:
+                waveform = waveform.mean(axis=-1)
+            inputs = self.whisper_processor.feature_extractor(
+                waveform,
+                sampling_rate=TARGET_SAMPLE_RATE,
+                return_tensors="pt",
+            )
+            input_features = inputs.input_features.to(self.whisper_model.device)
+            generation_options = {}
+            if WHISPER_LANGUAGE != "auto":
+                language_names = {"english": "english", "hindi": "hindi"}
+                language = language_names.get(WHISPER_LANGUAGE, WHISPER_LANGUAGE)
+                generation_options["language"] = language
+                generation_options["task"] = "transcribe"
+            else:
+                # Avoid forcing the language used during fine-tuning when the
+                # operator explicitly requests automatic detection.
+                generation_options["language"] = None
+                generation_options["task"] = "transcribe"
+                self.whisper_model.generation_config.forced_decoder_ids = None
+            with torch.inference_mode():
+                predicted_ids = self.whisper_model.generate(
+                    input_features,
+                    **generation_options,
+                )
+            return self.whisper_processor.batch_decode(
+                predicted_ids,
+                skip_special_tokens=True,
+            )[0].strip()
 
         result = (
             self.whisper_model.transcribe(

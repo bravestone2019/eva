@@ -1,0 +1,4 @@
+split,speaker_group_id,transcript,audio_path,expected_emotion,consent
+train,speaker_001,"A sample transcript to replace",audio/replace-this.wav,angry,true
+dev,speaker_101,"A sample transcript to replace",audio/replace-this.wav,neutral,true
+test,speaker_201,"A sample transcript to replace",audio/replace-this.wav,sad,true

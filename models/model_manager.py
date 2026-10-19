@@ -20,7 +20,8 @@ from app.config import (
     DEVICE,
     LLM_MODEL_NAME,
     WAVLM_MODEL_NAME,
-    WHISPER_MODEL_NAME
+    WHISPER_MODEL_NAME,
+    WHISPER_BACKEND,
 )
 
 
@@ -63,6 +64,7 @@ class ModelManager:
         self.tokenizer = None
 
         self.whisper_model = None
+        self.whisper_processor = None
 
         self.wavlm_model = None
         self.wavlm_processor = None
@@ -151,13 +153,25 @@ class ModelManager:
 
         print("\nLoading Whisper...")
 
-        self.whisper_model = (
-            whisper.load_model(
+        if WHISPER_BACKEND == "transformers":
+            from transformers import WhisperForConditionalGeneration, WhisperProcessor
+
+            self.whisper_processor = WhisperProcessor.from_pretrained(
                 WHISPER_MODEL_NAME
             )
-        )
+            self.whisper_model = WhisperForConditionalGeneration.from_pretrained(
+                WHISPER_MODEL_NAME
+            ).to(self.device)
+            self.whisper_model.eval()
+        elif WHISPER_BACKEND == "openai":
+            self.whisper_model = whisper.load_model(WHISPER_MODEL_NAME)
+        else:
+            raise ValueError(
+                "EVA_WHISPER_BACKEND must be 'openai' or 'transformers', "
+                f"got {WHISPER_BACKEND!r}."
+            )
 
-        print("Whisper loaded.")
+        print(f"Whisper loaded ({WHISPER_BACKEND}: {WHISPER_MODEL_NAME}).")
 
     # ========================================================
     # WAVLM
@@ -208,7 +222,9 @@ class ModelManager:
 
         self.load_whisper()
 
-        self.load_wavlm()
+        # WavLM is only needed by the experimental EmotionEngine, which has no
+        # trained checkpoint in this repository. Avoid downloading/loading it
+        # in the active API path; AffectEngine loads its own classifiers on demand.
 
         self.load_vad()
 

@@ -31,7 +31,9 @@ class LLMEngine:
 
         conversation_history=None,
 
-        rag_context=None
+        rag_context=None,
+
+        response_style="standard"
     ):
 
         messages = [
@@ -47,6 +49,12 @@ You are EVA, a voice-first
 personal AI assistant.
 
 Be helpful, natural and conversational.
+
+When answering a coding or programming question, put each code sample in its own
+fenced Markdown code block, separate from the surrounding explanation. Add the
+appropriate language tag (such as `python`, `javascript`, or `bash`) after the
+opening fence. Keep explanations outside the code block; do not mix prose into
+the code itself.
 
 Answer straightforward factual questions directly and lead with
 the answer. Use your general knowledge for stable facts such as
@@ -74,6 +82,23 @@ adapt communication style.
 """
             }
         ]
+
+        style_guidance = {
+            "concise_direct": "Lead with the practical answer or action. Be concise, skip filler, and ask a follow-up only when needed for correctness or safety. A brief acknowledgment is enough; do not add a scripted empathy preface.",
+            "step_by_step": "Use plain language and give one manageable step at a time. Avoid stacking instructions. Ask at most one short check-in question, only when it helps the user continue.",
+            "warm_supportive": "Use a calm, kind tone. Acknowledge only what the user actually said, avoid diagnosis or assumptions, and offer a practical next step without forced optimism.",
+            "encouraging": "Match the user's energy lightly while staying grounded. Help develop the idea and offer one useful next step; do not overpraise or cheerlead.",
+            "standard": "Use EVA's normal helpful, conversational style.",
+        }
+        messages.append({
+            "role": "system",
+            "content": (
+                "Use this response style only to adjust tone and structure. "
+                "Do not say or imply that you know the user's emotion. "
+                "Keep factual accuracy and safety guidance unchanged.\n\n"
+                + style_guidance.get(response_style, style_guidance["standard"])
+            ),
+        })
 
         if conversation_history:
 

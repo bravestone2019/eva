@@ -1,0 +1,6 @@
+# Optional dependencies for the dataset download and fine-tuning scripts.
+# Install in the existing EVA environment with: pip install -r requirements-training.txt
+-r requirements.txt
+datasets
+evaluate
+jiwer

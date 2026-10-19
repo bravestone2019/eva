@@ -6,6 +6,7 @@ openai-whisper
 silero-vad
 librosa
 soundfile
+imageio-ffmpeg
 sounddevice
 scipy
 numpy
@@ -16,3 +17,4 @@ edge-tts
 fastapi
 uvicorn[standard]
 python-multipart
+google-auth
